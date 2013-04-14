@@ -25,11 +25,13 @@ class circus::manager {
         ];
     }
 
-    # Create a symlink to /etc/init/*.conf in /etc/init.d, because Puppet 2.7
-    # looks there incorrectly (see: http://projects.puppetlabs.com/issues/14297)
-    file { "/etc/init.d/circusd":
-        ensure => link,
-        target => '/lib/init/upstart-job',
+    if versioncmp($puppetversion, '2.7.14') <= 0 {
+        # Create a symlink to /etc/init/*.conf in /etc/init.d, because Puppet 2.7.14
+        # looks there incorrectly (see: http://projects.puppetlabs.com/issues/14297)
+        file { "/etc/init.d/circusd":
+            ensure => link,
+            target => '/lib/init/upstart-job',
+        }
     }
 
     file { "/etc/init/circusd.conf":
