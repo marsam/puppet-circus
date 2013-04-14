@@ -7,57 +7,51 @@ class circus::manager {
         ensure => installed,
     }
 
-    package { ["circus", "greenlet", "gevent"]:
+    package { ["circus", "circus-web", "gevent"]:
         ensure   => installed,
         provider => pip,
         require  => Package["libzmq-dev", "libevent-dev", "python-dev"];
     }
 
-    service {
-        "circusd":
-            ensure  => running,
-            enable  => true,
-            provider => upstart,
-            require => [
-                File["/etc/init/circusd.conf"],
-                File["/etc/circus.ini"],
-                Package["circus"],
-            ];
+    service { "circusd":
+        ensure  => running,
+        enable  => true,
+        provider => upstart,
+        require => [
+            Package["circus"],
+            File["/etc/init/circusd.conf"],
+            File["/etc/circus.ini"],
+            File["/etc/init.d/circusd"],
+        ];
     }
 
-    exec {
-        "circusd-initctl-start":
-            command => "/sbin/initctl start circusd",
-            unless  => "/sbin/initctl status circusd | grep -w running",
-            require => [
-                Package["circus"],
-                File["/etc/init/circusd.conf"],
-                File["/etc/circus.ini"],
-            ];
-        "circus-initctl-reload":
-            command     => "/sbin/initctl restart circusd",
-            require     => Service['circusd'],
-            refreshonly => true;
+    # Create a symlink to /etc/init/*.conf in /etc/init.d, because Puppet 2.7
+    # looks there incorrectly (see: http://projects.puppetlabs.com/issues/14297)
+    file { "/etc/init.d/circusd":
+        ensure => link,
+        target => '/lib/init/upstart-job',
     }
 
-    file {
-        "/etc/init/circusd.conf":
-            ensure  => file,
-            mode    => 0644,
-            owner   => "root",
-            group   => "root",
-            source  => "puppet:///modules/circus/circusd.conf";
-        "/etc/circus.ini":
-            ensure  => file,
-            mode    => 0644,
-            owner   => "root",
-            group   => "root",
-            content => template("circus/circus.ini"),
-            notify  => Exec["circus-initctl-reload"];
-        "/etc/circus.d":
-            ensure  => directory,
-            mode    => 0755,
-            owner   => "root",
-            group   => "root";
+    file { "/etc/init/circusd.conf":
+        ensure  => file,
+        mode    => 0644,
+        owner   => "root",
+        group   => "root",
+        source  => "puppet:///modules/circus/circusd.conf",
+    }
+
+    file { "/etc/circus.ini":
+        ensure  => file,
+        mode    => 0644,
+        owner   => "root",
+        group   => "root",
+        content => template("circus/circus.ini"),
+        notify  => Service['circusd'],
+    }
+    file { "/etc/circus.d":
+        ensure  => directory,
+        mode    => 0755,
+        owner   => "root",
+        group   => "root";
     }
 }
